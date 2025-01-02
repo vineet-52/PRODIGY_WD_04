@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+        }
+        .container {
+            margin: 20px auto;
+            max-width: 600px;
+            padding: 20px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #f0f0f0;
+        }
+        p {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+        input {
+            padding: 12px;
+            width: calc(100% - 26px);
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            background-color: #f9f9f9;
+        }
+        .autocomplete {
+            position: relative;
+        }
+        .autocomplete-items {
+            position: absolute;
+            background: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .autocomplete-items div {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .autocomplete-items div:hover {
+            background-color: #007BFF;
+            color: #fff;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 1em;
+            font-weight: bold;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .weather-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        .weather-info h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+        .weather-info p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .error {
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+        footer {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #1e3c72;
+            color: #fff;
+            text-align: center;
+            font-size: 1em;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather App</h1>
+        <p>Enter a location or use your current location to fetch weather data.</p>
+        <div class="autocomplete">
+            <input type="text" id="location" placeholder="Enter location (e.g., New York)" oninput="debouncedAutocomplete()" />
+            <div id="autocomplete-list" class="autocomplete-items"></div>
+        </div>
+        <button onclick="getWeatherByInput()">Get Weather</button>
+        <button onclick="getWeatherByLocation()">Use My Location</button>
+        <div id="weather" class="weather-info"></div>
+    </div>
+
+    <footer>
+        <p>&copy; <span id="currentYear"></span> Weather App. All rights reserved.</p>
+    </footer>
+
+    <script>
+        const apiKey = '2e461877399d14bfe3a8fca1239251ca';
+        let debounceTimer;
+
+        async function fetchWeather(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} - ${response.statusText}`);
+                }
+                const data = await response.json();
+                displayWeather(data);
+            } catch (error) {
+                document.getElementById('weather').innerHTML = `<p class="error">${error.message}</p>`;
+            }
+        }
+
+        function displayWeather(data) {
+            const weatherDiv = document.getElementById('weather');
+            const { name, main, weather, wind } = data;
+            weatherDiv.innerHTML = `
+                <h2>Weather in ${name}</h2>
+                <p>Temperature: ${main.temp}°C</p>
+                <p>Condition: ${weather[0].description}</p>
+                <p>Humidity: ${main.humidity}%</p>
+                <p>Pressure: ${main.pressure} hPa</p>
+                <p>Wind Speed: ${wind.speed} m/s</p>
+            `;
+        }
+
+        function getWeatherByInput() {
+            const location = document.getElementById('location').value;
+            if (location.trim() === '') {
+                alert('Please enter a location');
+                return;
+            }
+            const url = `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${apiKey}`;
+            fetchWeather(url);
+        }
+
+        function getWeatherByLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`;
+                        fetchWeather(url);
+                    },
+                    (error) => {
+                        document.getElementById('weather').innerHTML = `<p class="error">Unable to retrieve your location: ${error.message}</p>`;
+                    }
+                );
+            } else {
+                document.getElementById('weather').innerHTML = '<p class="error">Geolocation is not supported by your browser</p>';
+            }
+        }
+
+        function debouncedAutocomplete() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(autocompleteLocation, 300);
+        }
+
+        async function autocompleteLocation() {
+            const input = document.getElementById('location').value;
+            const listDiv = document.getElementById('autocomplete-list');
+            listDiv.innerHTML = '';
+
+            if (input.length < 3) return;
+
+            try {
+                const url = `https://api.openweathermap.org/geo/1.0/direct?q=${input}&limit=5&appid=${apiKey}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Unable to fetch location suggestions');
+                }
+                const locations = await response.json();
+
+                locations.forEach((loc) => {
+                    const item = document.createElement('div');
+                    item.textContent = `${loc.name}, ${loc.country}`;
+                    item.onclick = () => {
+                        document.getElementById('location').value = `${loc.name}, ${loc.country}`;
+                        listDiv.innerHTML = '';
+                    };
+                    listDiv.appendChild(item);
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
+</body>
+</html>
